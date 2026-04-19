@@ -1,8 +1,8 @@
+from datetime import datetime
 from typing import Dict, List
 
 
 MINUTES_PER_DAY = 24 * 60
-START_MINUTE_DAY_ONE = 6 * 60
 
 
 def _to_hhmm(minute_of_day: int) -> str:
@@ -11,12 +11,14 @@ def _to_hhmm(minute_of_day: int) -> str:
     return f"{hours:02d}:{minutes:02d}"
 
 
-def _status_for_event(event_type: str) -> str:
-    if event_type == "driving":
+def _to_status(schedule_status: str) -> str:
+    if schedule_status == "driving":
         return "driving"
-    if event_type in {"on_duty_nd", "break"}:
+    if schedule_status == "on_duty":
         return "on_duty_not_driving"
-    if event_type in {"rest", "off_duty"}:
+    if schedule_status == "sleeper":
+        return "sleeper_berth"
+    if schedule_status == "off_duty":
         return "off_duty"
     return "off_duty"
 
@@ -28,7 +30,7 @@ def _new_day(day_number: int) -> Dict:
         "entries": [],
         "totals": {
             "off_duty": 0.0,
-            "sleeper_berth": 0,
+            "sleeper_berth": 0.0,
             "driving": 0.0,
             "on_duty_not_driving": 0.0,
         },
@@ -48,10 +50,33 @@ def _add_entry(day: Dict, status: str, start_minute: int, end_minute: int) -> No
     duration_hours = (end_minute - start_minute) / 60.0
     if status == "off_duty":
         day["totals"]["off_duty"] += duration_hours
+    elif status == "sleeper_berth":
+        day["totals"]["sleeper_berth"] += duration_hours
     elif status == "driving":
         day["totals"]["driving"] += duration_hours
     elif status == "on_duty_not_driving":
         day["totals"]["on_duty_not_driving"] += duration_hours
+
+
+def _remark_for_segment(segment: dict) -> str:
+    event_type = segment.get("event_type")
+    if event_type == "pickup":
+        return "Pickup"
+    if event_type == "dropoff":
+        return "Dropoff"
+    if event_type == "fuel":
+        return "Fuel stop"
+    if event_type == "inspection":
+        return "Pre-trip inspection"
+    if event_type == "rest":
+        return "30-min required break"
+    if event_type == "reset":
+        return "Start of 10-hr reset"
+    return ""
+
+
+def _minutes_since_start(start_time: datetime, anchor: datetime) -> int:
+    return int(round((start_time - anchor).total_seconds() / 60.0))
 
 
 def build_eld_logs(schedule: list[dict]) -> list[dict]:
@@ -63,20 +88,32 @@ def build_eld_logs(schedule: list[dict]) -> list[dict]:
     current_day = _new_day(current_day_number)
     days.append(current_day)
 
-    _add_entry(current_day, "off_duty", 0, START_MINUTE_DAY_ONE)
-    absolute_minute = START_MINUTE_DAY_ONE
+    anchor = schedule[0]["start_time"]
+    if not isinstance(anchor, datetime):
+        raise ValueError("Schedule start_time must be datetime")
 
-    for event in schedule:
-        event_type = event.get("type", "off_duty")
-        status = _status_for_event(event_type)
-        duration_minutes = int(round(float(event.get("duration_hrs", 0)) * 60))
+    for segment in schedule:
+        segment_start = segment.get("start_time")
+        segment_end = segment.get("end_time")
+        if not isinstance(segment_start, datetime) or not isinstance(segment_end, datetime):
+            raise ValueError("Schedule segment times must be datetime")
+
+        absolute_minute = _minutes_since_start(segment_start, anchor)
+        duration_minutes = int(round((segment_end - segment_start).total_seconds() / 60.0))
         if duration_minutes <= 0:
             continue
 
-        notes = (event.get("notes") or "").strip()
-        if notes:
+        status = _to_status(segment.get("status"))
+        required_day_number = (absolute_minute // MINUTES_PER_DAY) + 1
+        if required_day_number > current_day_number:
+            current_day_number = required_day_number
+            current_day = _new_day(current_day_number)
+            days.append(current_day)
+
+        remark = _remark_for_segment(segment)
+        if remark:
             start_minute_of_day = absolute_minute % MINUTES_PER_DAY
-            current_day["remarks"].append(f"{_to_hhmm(start_minute_of_day)} - {notes}")
+            current_day["remarks"].append(f"{_to_hhmm(start_minute_of_day)} - {remark}")
 
         remaining = duration_minutes
         while remaining > 0:
@@ -97,6 +134,7 @@ def build_eld_logs(schedule: list[dict]) -> list[dict]:
 
     for day in days:
         day["totals"]["off_duty"] = round(day["totals"]["off_duty"], 3)
+        day["totals"]["sleeper_berth"] = round(day["totals"]["sleeper_berth"], 3)
         day["totals"]["driving"] = round(day["totals"]["driving"], 3)
         day["totals"]["on_duty_not_driving"] = round(day["totals"]["on_duty_not_driving"], 3)
 

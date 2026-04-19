@@ -1,11 +1,21 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import axios from "axios";
+import {
+  Bell,
+  CircleHelp,
+  Compass,
+  FileText,
+  LayoutDashboard,
+  Map,
+  Settings,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 import TripForm from "../components/TripForm";
 import RouteMap from "../components/RouteMap";
-import StopList from "../components/StopList";
 import ELDLogSheet from "../components/ELDLogSheet";
 
-const API_URL = "http://localhost:8000/api/trip/plan/";
+const API_URL = "/api/trip/plan/";
 
 function PlannerPage() {
   const [loading, setLoading] = useState(false);
@@ -29,49 +39,103 @@ function PlannerPage() {
     }
   };
 
-  const summary = useMemo(() => {
-    if (!result) {
-      return null;
-    }
-
-    const route = result.route || {};
-    const logs = result.eld_logs || [];
-    const schedule = result.schedule || [];
-
-    const totalMiles = Number(route.total_miles || 0);
-    const totalDriveHours = logs.reduce((sum, day) => sum + Number(day.totals?.driving || 0), 0);
-    const restStops = schedule.filter((event) => ["rest", "break"].includes(event.type)).length;
-
-    return {
-      totalMiles: totalMiles.toFixed(1),
-      estimatedDays: logs.length,
-      totalDriveHours: totalDriveHours.toFixed(1),
-      restStops,
-    };
-  }, [result]);
-
   return (
-    <main className="planner-page">
-      <section className="hero-block">
-        <h1>ELD Trip Planner</h1>
-        <p>Plan a route, inspect stops, and review canvas-based ELD logs.</p>
-      </section>
+    <div className="dashboard-shell">
+      <aside className="dashboard-sidebar">
+        <div className="sidebar-top">
+          <h1 className="sidebar-title">ELD Planner</h1>
+          <nav className="sidebar-nav" aria-label="Primary">
+            <button type="button" className="sidebar-link active">
+              <LayoutDashboard size={16} strokeWidth={2} aria-hidden="true" />
+              <span>Dashboard</span>
+            </button>
+            <button type="button" className="sidebar-link">
+              <FileText size={16} strokeWidth={2} aria-hidden="true" />
+              <span>Logs</span>
+            </button>
+            <button type="button" className="sidebar-link">
+              <Map size={16} strokeWidth={2} aria-hidden="true" />
+              <span>Maps</span>
+            </button>
+            <button type="button" className="sidebar-link">
+              <Compass size={16} strokeWidth={2} aria-hidden="true" />
+              <span>Documents</span>
+            </button>
+            <button type="button" className="sidebar-link">
+              <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />
+              <span>Compliance</span>
+            </button>
+          </nav>
+        </div>
 
-      <TripForm onSubmit={handlePlan} loading={loading} error={error} />
+        <div className="sidebar-bottom">
+          <button type="button" className="sidebar-link">
+            <Settings size={16} strokeWidth={2} aria-hidden="true" />
+            <span>Settings</span>
+          </button>
+          <button type="button" className="sidebar-link">
+            <CircleHelp size={16} strokeWidth={2} aria-hidden="true" />
+            <span>Support</span>
+          </button>
+        </div>
+      </aside>
 
-      {result ? (
-        <section className="results-stack">
-          {summary ? (
-            <div className="summary-bar">
-              {`Total Miles: ${summary.totalMiles} | Estimated Days: ${summary.estimatedDays} | Total Drive Hours: ${summary.totalDriveHours} | Rest Stops: ${summary.restStops}`}
-            </div>
+      <main className="dashboard-main">
+        <header className="dashboard-topbar">
+          <p className="topbar-app-name">Dashboard</p>
+          <div className="topbar-actions">
+            <button type="button" className="topbar-icon" aria-label="Notifications">
+              <Bell size={18} strokeWidth={2} aria-hidden="true" />
+            </button>
+            <button type="button" className="topbar-icon" aria-label="Profile">
+              <User size={18} strokeWidth={2} aria-hidden="true" />
+            </button>
+            <button type="button" className="topbar-export" aria-label="Export plan data">
+              Export
+            </button>
+          </div>
+        </header>
+
+        <section className="dashboard-content">
+          <section className="dashboard-top-row">
+            <section className="dashboard-route-col">
+              <TripForm onSubmit={handlePlan} loading={loading} error={error} />
+            </section>
+
+            <section className="dashboard-map-col">
+              <RouteMap geometry={result?.route?.geometry || []} stops={result?.stops || []} />
+            </section>
+          </section>
+
+          {result?.summary ? (
+            <section className="summary-grid" aria-label="Trip summary stats">
+              <article className="summary-card">
+                <p className="summary-label">Total Miles</p>
+                <p className="summary-value">{Number(result.summary.total_miles || 0).toFixed(1)}</p>
+              </article>
+              <article className="summary-card">
+                <p className="summary-label">Estimated Days</p>
+                <p className="summary-value">{result.summary.estimated_days || 0}</p>
+              </article>
+              <article className="summary-card">
+                <p className="summary-label">Drive Hours</p>
+                <p className="summary-value">{Number(result.summary.total_drive_hours || 0).toFixed(1)}</p>
+              </article>
+              <article className="summary-card">
+                <p className="summary-label">Rest Stops</p>
+                <p className="summary-value">{result.summary.rest_stops || 0}</p>
+              </article>
+            </section>
           ) : null}
-          <RouteMap geometry={result.route?.geometry || []} stops={result.stops || []} />
-          <StopList stops={result.stops || []} />
-          <ELDLogSheet logs={result.eld_logs || []} />
+
+          {result ? (
+            <section className="dashboard-eld-section">
+              <ELDLogSheet logs={result.eld_logs || []} />
+            </section>
+          ) : null}
         </section>
-      ) : null}
-    </main>
+      </main>
+    </div>
   );
 }
 

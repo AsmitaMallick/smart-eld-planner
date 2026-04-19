@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import L from "leaflet";
-import { MapContainer, Marker, Popup, Polyline, TileLayer } from "react-leaflet";
+import { MapContainer, Marker, Popup, Polyline, TileLayer, useMap } from "react-leaflet";
 
 const markerIcon = (color) =>
   L.divIcon({
@@ -17,6 +17,33 @@ const markerByType = {
   fuel: markerIcon("#ea580c"),
 };
 
+function AutoFitRoute({ routePoints, stopPoints }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const points = [...routePoints, ...stopPoints.map((stop) => [Number(stop.lat), Number(stop.lng)])].filter(
+      (point) => Array.isArray(point) && point.length === 2 && Number.isFinite(point[0]) && Number.isFinite(point[1])
+    );
+
+    if (!points.length) {
+      return;
+    }
+
+    if (points.length === 1) {
+      map.setView(points[0], 11, { animate: true });
+      return;
+    }
+
+    map.fitBounds(points, {
+      padding: [28, 28],
+      maxZoom: 12,
+      animate: true,
+    });
+  }, [map, routePoints, stopPoints]);
+
+  return null;
+}
+
 function RouteMap({ geometry, stops }) {
   const routePoints = useMemo(
     () => (Array.isArray(geometry) ? geometry.filter((point) => point?.length === 2) : []),
@@ -31,9 +58,26 @@ function RouteMap({ geometry, stops }) {
   const center = routePoints[0] || [39.5, -98.35];
 
   return (
-    <div className="card">
-      <h2>Route Map</h2>
+    <div className="card map-card">
+      <div className="map-card-header">
+        <h2>Route Preview</h2>
+        <div className="map-legend" aria-label="Map legend">
+          <span className="map-legend-item">
+            <i className="map-legend-dot fuel" /> Fuel stops
+          </span>
+          <span className="map-legend-item">
+            <i className="map-legend-dot rest" /> Rest stops
+          </span>
+          <span className="map-legend-item">
+            <i className="map-legend-dot pickup" /> Pickup
+          </span>
+          <span className="map-legend-item">
+            <i className="map-legend-dot dropoff" /> Dropoff
+          </span>
+        </div>
+      </div>
       <MapContainer center={center} zoom={5} className="map-wrap" scrollWheelZoom>
+        <AutoFitRoute routePoints={routePoints} stopPoints={stopPoints} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
