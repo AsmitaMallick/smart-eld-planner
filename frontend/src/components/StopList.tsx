@@ -1,18 +1,19 @@
 import { useMemo, useState } from "react";
+import type { TimelineItem } from "../types/trip";
 
-const DOT_CLASS_BY_STATUS = {
+const DOT_CLASS_BY_STATUS: Record<string, string> = {
   driving: "timeline-dot driving",
   on_duty: "timeline-dot on-duty",
   sleeper: "timeline-dot sleeper",
   off_duty: "timeline-dot off-duty",
 };
 
-const DOT_CLASS_BY_EVENT = {
+const DOT_CLASS_BY_EVENT: Record<string, string> = {
   pickup: "timeline-dot pickup",
   dropoff: "timeline-dot dropoff",
 };
 
-function formatClockTime(value) {
+function formatClockTime(value?: string): string {
   if (!value) return "--:--";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--:--";
@@ -21,24 +22,33 @@ function formatClockTime(value) {
   return `${hh}:${mm}`;
 }
 
-function toDayLabel(day) {
+function toDayLabel(day?: number): string {
   const n = Number(day || 1);
   return `Day ${Number.isFinite(n) && n > 0 ? n : 1}`;
 }
 
-function colorClassFor(item) {
+function colorClassFor(item: TimelineItem): string {
   if (DOT_CLASS_BY_EVENT[item.type]) {
     return DOT_CLASS_BY_EVENT[item.type];
   }
-  return DOT_CLASS_BY_STATUS[item.status] || "timeline-dot off-duty";
+  return DOT_CLASS_BY_STATUS[item.status ?? ""] || "timeline-dot off-duty";
 }
 
-function isMajorStop(item) {
+function isMajorStop(item: TimelineItem): boolean {
   return ["pickup", "dropoff", "fuel", "reset", "end_of_trip_rest"].includes(item.type);
 }
 
-function StopList({ timeline }) {
-  const [showMajorOnly, setShowMajorOnly] = useState(false);
+interface StopListProps {
+  timeline: TimelineItem[];
+}
+
+interface DayGroup {
+  day: number;
+  items: TimelineItem[];
+}
+
+function StopList({ timeline }: StopListProps) {
+  const [showMajorOnly, setShowMajorOnly] = useState<boolean>(false);
 
   const filteredTimeline = useMemo(() => {
     const source = Array.isArray(timeline) ? timeline : [];
@@ -48,17 +58,18 @@ function StopList({ timeline }) {
     return source.filter((item) => isMajorStop(item));
   }, [timeline, showMajorOnly]);
 
-  const byDay = useMemo(() => {
-    const groups = {};
+  const byDay = useMemo<DayGroup[]>(() => {
+    const groups = new Map<number, TimelineItem[]>();
+
     for (const item of filteredTimeline) {
       const day = Number(item.day || 1);
-      if (!groups[day]) {
-        groups[day] = [];
-      }
-      groups[day].push(item);
+      const current = groups.get(day) ?? [];
+      current.push(item);
+      groups.set(day, current);
     }
-    return Object.entries(groups)
-      .map(([day, items]) => ({ day: Number(day), items }))
+
+    return Array.from(groups.entries())
+      .map(([day, items]) => ({ day, items }))
       .sort((a, b) => a.day - b.day);
   }, [filteredTimeline]);
 

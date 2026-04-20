@@ -15,27 +15,38 @@ import TripForm from "../components/TripForm";
 import RouteMap from "../components/RouteMap";
 import ELDLogSheet from "../components/ELDLogSheet";
 import { showToast } from "../utils/toast";
+import type {
+  ApiErrorResponse,
+  ToastVariant,
+  TripPlanPayload,
+  TripPlanResult,
+} from "../types/trip";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 const API_URL = `${API_BASE}/api/trip/plan/`;
 
 function PlannerPage() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [result, setResult] = useState<TripPlanResult | null>(null);
 
-  const handlePlan = async (payload) => {
+  const handlePlan = async (payload: TripPlanPayload): Promise<void> => {
     setLoading(true);
     setError("");
     try {
-      const response = await axios.post(API_URL, payload, {
+      const response = await axios.post<TripPlanResult>(API_URL, payload, {
         headers: { "Content-Type": "application/json" },
       });
       setResult(response.data);
       showToast("Plan generated successfully", "success");
-    } catch (err) {
-      const detail = err?.response?.data?.detail;
-      const errorMessage = detail || "Unable to plan trip. Check backend and API key.";
+    } catch (err: unknown) {
+      let detail = "";
+      if (axios.isAxiosError<ApiErrorResponse>(err)) {
+        detail = err.response?.data?.detail ?? "";
+      }
+
+      const errorMessage =
+        detail || "Unable to plan trip. Check backend and API key.";
       setError(errorMessage);
       setResult(null);
       showToast(errorMessage, "error", { duration: 3600 });
@@ -44,9 +55,16 @@ function PlannerPage() {
     }
   };
 
-  const notifyComingSoon = (message, type = "info") => () => {
-    showToast(message, type);
-  };
+  const notifyComingSoon =
+    (message: string, type: ToastVariant = "info") =>
+    () => {
+      showToast(message, type);
+    };
+
+  const geometry = result?.route?.geometry ?? [];
+  const stops = result?.stops ?? [];
+  const summary = result?.summary;
+  const logs = result?.eld_logs ?? [];
 
   return (
     <div className="dashboard-shell">
@@ -151,34 +169,38 @@ function PlannerPage() {
             </section>
 
             <section className="dashboard-map-col">
-              <RouteMap geometry={result?.route?.geometry || []} stops={result?.stops || []} />
+              <RouteMap geometry={geometry} stops={stops} />
             </section>
           </section>
 
-          {result?.summary ? (
+          {summary ? (
             <section className="summary-grid" aria-label="Trip summary stats">
               <article className="summary-card">
                 <p className="summary-label">Total Miles</p>
-                <p className="summary-value">{Number(result.summary.total_miles || 0).toFixed(1)}</p>
+                <p className="summary-value">
+                  {Number(summary.total_miles || 0).toFixed(1)}
+                </p>
               </article>
               <article className="summary-card">
                 <p className="summary-label">Estimated Days</p>
-                <p className="summary-value">{result.summary.estimated_days || 0}</p>
+                <p className="summary-value">{summary.estimated_days || 0}</p>
               </article>
               <article className="summary-card">
                 <p className="summary-label">Drive Hours</p>
-                <p className="summary-value">{Number(result.summary.total_drive_hours || 0).toFixed(1)}</p>
+                <p className="summary-value">
+                  {Number(summary.total_drive_hours || 0).toFixed(1)}
+                </p>
               </article>
               <article className="summary-card">
                 <p className="summary-label">Rest Stops</p>
-                <p className="summary-value">{result.summary.rest_stops || 0}</p>
+                <p className="summary-value">{summary.rest_stops || 0}</p>
               </article>
             </section>
           ) : null}
 
           {result ? (
             <section className="dashboard-eld-section">
-              <ELDLogSheet logs={result.eld_logs || []} />
+              <ELDLogSheet logs={logs} />
             </section>
           ) : null}
         </section>

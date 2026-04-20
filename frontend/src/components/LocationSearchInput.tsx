@@ -1,7 +1,27 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { LocationOption } from "../types/trip";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 const LOCATION_SEARCH_URL = `${API_BASE}/api/trip/location-search/`;
+
+interface LocationSearchInputProps {
+  label: string;
+  labelIcon?: ReactNode;
+  placeholder: string;
+  value: string;
+  onValueChange: (nextValue: string) => void;
+  onSelect: (option: LocationOption | null) => void;
+  selectedOption?: LocationOption | null;
+  required?: boolean;
+}
+
+function isRawLocationOption(item: unknown): item is { label: unknown; lat: unknown; lng: unknown } {
+  if (item == null || typeof item !== "object") {
+    return false;
+  }
+
+  return "label" in item && "lat" in item && "lng" in item;
+}
 
 function LocationSearchInput({
   label,
@@ -12,12 +32,12 @@ function LocationSearchInput({
   onSelect,
   selectedOption = null,
   required = false,
-}) {
-  const [options, setOptions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [open, setOpen] = useState(false);
-  const closeRef = useRef(null);
+}: LocationSearchInputProps) {
+  const [options, setOptions] = useState<LocationOption[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [open, setOpen] = useState<boolean>(false);
+  const closeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const query = String(value || "").trim();
@@ -49,23 +69,26 @@ function LocationSearchInput({
 
         const response = await fetch(url.toString(), { signal: controller.signal });
         if (!response.ok) {
-          const detail = await response.json().catch(() => null);
-          throw new Error(detail?.detail || "Failed to fetch location suggestions");
+          const detail: unknown = await response.json().catch(() => null);
+          if (detail && typeof detail === "object" && "detail" in detail && typeof detail.detail === "string") {
+            throw new Error(detail.detail);
+          }
+          throw new Error("Failed to fetch location suggestions");
         }
 
-        const data = await response.json();
-        const nextOptions = Array.isArray(data)
+        const data: unknown = await response.json();
+        const nextOptions: LocationOption[] = Array.isArray(data)
           ? data
               .slice(0, 5)
+              .filter((item) => isRawLocationOption(item))
               .filter(
                 (item) =>
-                  item &&
                   typeof item.label === "string" &&
                   Number.isFinite(Number(item.lat)) &&
                   Number.isFinite(Number(item.lng))
               )
               .map((item) => ({
-                label: item.label,
+                label: item.label as string,
                 lat: Number(item.lat),
                 lng: Number(item.lng),
               }))
@@ -73,12 +96,12 @@ function LocationSearchInput({
 
         setOptions(nextOptions);
         setOpen(true);
-      } catch (err) {
-        if (err.name === "AbortError") {
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") {
           return;
         }
         setOptions([]);
-        setError(err.message || "Unable to load suggestions");
+        setError(err instanceof Error ? err.message : "Unable to load suggestions");
         setOpen(true);
       } finally {
         setLoading(false);
@@ -106,7 +129,7 @@ function LocationSearchInput({
     }
   };
 
-  const handleSelect = (item) => {
+  const handleSelect = (item: LocationOption) => {
     onValueChange(item.label);
     onSelect(item);
     setOpen(false);
@@ -139,9 +162,7 @@ function LocationSearchInput({
         <div className="suggestions-dropdown">
           {loading ? <div className="suggestions-row muted">Loading...</div> : null}
           {!loading && error ? <div className="suggestions-row error">{error}</div> : null}
-          {!loading && !error && !options.length ? (
-            <div className="suggestions-row muted">No matches</div>
-          ) : null}
+          {!loading && !error && !options.length ? <div className="suggestions-row muted">No matches</div> : null}
           {!loading && !error
             ? options.map((item, index) => (
                 <button

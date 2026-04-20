@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from "react";
-import L from "leaflet";
+import L, { type DivIcon, type LatLngTuple } from "leaflet";
 import { MapContainer, Marker, Popup, Polyline, TileLayer, useMap } from "react-leaflet";
+import type { RoutePoint, TripStop } from "../types/trip";
 
-const markerIcon = (color) =>
+const markerIcon = (color: string): DivIcon =>
   L.divIcon({
     className: "custom-marker",
     html: `<span style="background:${color};"></span>`,
@@ -10,19 +11,25 @@ const markerIcon = (color) =>
     iconAnchor: [9, 9],
   });
 
-const markerByType = {
+const markerByType: Record<string, DivIcon> = {
   pickup: markerIcon("#16a34a"),
   dropoff: markerIcon("#dc2626"),
   rest: markerIcon("#64748b"),
   fuel: markerIcon("#ea580c"),
 };
 
-function AutoFitRoute({ routePoints, stopPoints }) {
+interface AutoFitRouteProps {
+  routePoints: RoutePoint[];
+  stopPoints: TripStop[];
+}
+
+function AutoFitRoute({ routePoints, stopPoints }: AutoFitRouteProps) {
   const map = useMap();
 
   useEffect(() => {
-    const points = [...routePoints, ...stopPoints.map((stop) => [Number(stop.lat), Number(stop.lng)])].filter(
-      (point) => Array.isArray(point) && point.length === 2 && Number.isFinite(point[0]) && Number.isFinite(point[1])
+    const points: LatLngTuple[] = [...routePoints, ...stopPoints.map((stop) => [Number(stop.lat), Number(stop.lng)] as LatLngTuple)].filter(
+      (point): point is LatLngTuple =>
+        Array.isArray(point) && point.length === 2 && Number.isFinite(point[0]) && Number.isFinite(point[1])
     );
 
     if (!points.length) {
@@ -44,18 +51,38 @@ function AutoFitRoute({ routePoints, stopPoints }) {
   return null;
 }
 
-function RouteMap({ geometry, stops }) {
-  const routePoints = useMemo(
-    () => (Array.isArray(geometry) ? geometry.filter((point) => point?.length === 2) : []),
+interface RouteMapProps {
+  geometry: RoutePoint[];
+  stops: TripStop[];
+}
+
+function RouteMap({ geometry, stops }: RouteMapProps) {
+  const routePoints = useMemo<RoutePoint[]>(
+    () =>
+      (Array.isArray(geometry)
+        ? geometry.filter(
+            (point): point is RoutePoint =>
+              Array.isArray(point) &&
+              point.length === 2 &&
+              Number.isFinite(point[0]) &&
+              Number.isFinite(point[1])
+          )
+        : []),
     [geometry]
   );
 
-  const stopPoints = useMemo(
-    () => (Array.isArray(stops) ? stops.filter((stop) => stop.lat != null && stop.lng != null) : []),
+  const stopPoints = useMemo<TripStop[]>(
+    () =>
+      (Array.isArray(stops)
+        ? stops.filter(
+            (stop): stop is TripStop =>
+              stop != null && typeof stop.lat === "number" && Number.isFinite(stop.lat) && typeof stop.lng === "number" && Number.isFinite(stop.lng)
+          )
+        : []),
     [stops]
   );
 
-  const center = routePoints[0] || [39.5, -98.35];
+  const center: LatLngTuple = routePoints[0] ?? [39.5, -98.35];
 
   return (
     <div className="card map-card">
@@ -86,7 +113,7 @@ function RouteMap({ geometry, stops }) {
         {stopPoints.map((stop, idx) => (
           <Marker
             key={`${stop.type}-${idx}`}
-            position={[stop.lat, stop.lng]}
+            position={[stop.lat, stop.lng] as LatLngTuple}
             icon={markerByType[stop.type] || markerByType.rest}
           >
             <Popup>

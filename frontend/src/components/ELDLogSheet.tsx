@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
+import type { DayLog, DayLogEntry, ELDMeta } from "../types/trip";
 
 const ROWS = [
   { key: "off_duty", label: "Off Duty" },
@@ -9,31 +10,48 @@ const ROWS = [
   { key: "on_duty", label: "On Duty" },
 ];
 
-const statusToRow = {
+const statusToRow: Record<string, number> = {
   off_duty: 0,
   sleeper: 1,
   driving: 2,
   on_duty: 3,
 };
 
-const statusAlias = {
+const statusAlias: Record<string, string> = {
   sleeper_berth: "sleeper",
   on_duty_not_driving: "on_duty",
 };
 
-function parseTimeToHour(timeText) {
-  const [hour, minute] = String(timeText || "").split(":").map(Number);
+interface NormalizedEntry {
+  rowIndex: number;
+  startHour: number;
+  endHour: number;
+}
+
+interface Segment {
+  key: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+function parseTimeToHour(timeText?: string): number | null {
+  const [hour, minute] = String(timeText || "")
+    .split(":")
+    .map(Number);
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
     return null;
   }
   return hour + minute / 60;
 }
 
-function normalizeEntries(entries) {
+function normalizeEntries(entries?: DayLogEntry[]): NormalizedEntry[] {
   return (Array.isArray(entries) ? entries : [])
     .map((entry) => {
-      const normalizedStatus = statusAlias[entry?.status] || entry?.status;
-      const rowIndex = statusToRow[normalizedStatus];
+      const normalizedStatus =
+        statusAlias[entry?.status ?? ""] || entry?.status;
+      const rowIndex = statusToRow[normalizedStatus ?? ""];
       const startHour = parseTimeToHour(entry?.start_time || entry?.start);
       const endHour = parseTimeToHour(entry?.end_time || entry?.end);
 
@@ -47,13 +65,17 @@ function normalizeEntries(entries) {
         endHour,
       };
     })
-    .filter(Boolean)
+    .filter((entry): entry is NormalizedEntry => entry != null)
     .sort((a, b) => a.startHour - b.startHour);
 }
 
-function buildStepSegments(entries, xFromHour, yFromRow) {
-  const segments = [];
-  let previous = null;
+function buildStepSegments(
+  entries: NormalizedEntry[],
+  xFromHour: (hour: number) => number,
+  yFromRow: (rowIndex: number) => number,
+): Segment[] {
+  const segments: Segment[] = [];
+  let previous: NormalizedEntry | null = null;
 
   for (const entry of entries) {
     const start = Math.max(0, Math.min(24, entry.startHour));
@@ -91,18 +113,30 @@ function buildStepSegments(entries, xFromHour, yFromRow) {
   return segments;
 }
 
-function buildDefaultMeta(dayLog) {
+function buildDefaultMeta(dayLog: DayLog): ELDMeta {
   return {
     driverName: dayLog.driver_name || "",
     carrierName: dayLog.carrier_name || "",
     truckNumber: dayLog.truck_number || "",
     date: dayLog.date_label || "",
-    totalMiles: dayLog.total_miles || "",
+    totalMiles: String(dayLog.total_miles || ""),
     remarks: Array.isArray(dayLog.remarks) ? dayLog.remarks.join("\n") : "",
   };
 }
 
-function DayLogSvg({ dayLog, meta, onOpenEdit, onRemarksChange }) {
+interface DayLogSvgProps {
+  dayLog: DayLog;
+  meta: ELDMeta;
+  onOpenEdit: () => void;
+  onRemarksChange: (remarks: string) => void;
+}
+
+function DayLogSvg({
+  dayLog,
+  meta,
+  onOpenEdit,
+  onRemarksChange,
+}: DayLogSvgProps) {
   const width = 1080;
   const height = 250;
   const left = 130;
@@ -114,10 +148,17 @@ function DayLogSvg({ dayLog, meta, onOpenEdit, onRemarksChange }) {
   const rowHeight = gridHeight / 4;
   const quarterHourWidth = gridWidth / 96;
 
-  const entries = useMemo(() => normalizeEntries(dayLog.entries), [dayLog.entries]);
-  const xFromHour = (hour) => left + hour * (gridWidth / 24);
-  const yFromRow = (rowIndex) => top + rowIndex * rowHeight + rowHeight / 2;
-  const segments = useMemo(() => buildStepSegments(entries, xFromHour, yFromRow), [entries]);
+  const entries = useMemo(
+    () => normalizeEntries(dayLog.entries),
+    [dayLog.entries],
+  );
+  const xFromHour = (hour: number) => left + hour * (gridWidth / 24);
+  const yFromRow = (rowIndex: number) =>
+    top + rowIndex * rowHeight + rowHeight / 2;
+  const segments = useMemo(
+    () => buildStepSegments(entries, xFromHour, yFromRow),
+    [entries],
+  );
 
   return (
     <section className="eld-sheet-wrapper">
@@ -144,15 +185,29 @@ function DayLogSvg({ dayLog, meta, onOpenEdit, onRemarksChange }) {
             <span className="eld-meta-value">{meta.totalMiles || "-"}</span>
           </div>
         </div>
-        <button type="button" className="eld-action-btn no-export" onClick={onOpenEdit}>
+        <button
+          type="button"
+          className="eld-action-btn no-export"
+          onClick={onOpenEdit}
+        >
           Edit
         </button>
       </header>
 
-      <svg className="eld-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={meta.date || "ELD log"}>
+      <svg
+        className="eld-svg"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={meta.date || "ELD log"}
+      >
         {Array.from({ length: 97 }, (_, tick) => {
           const x = left + tick * quarterHourWidth;
-          const variant = tick % 4 === 0 ? "hour" : tick % 2 === 0 ? "half-hour" : "quarter-hour";
+          const variant =
+            tick % 4 === 0
+              ? "hour"
+              : tick % 2 === 0
+                ? "half-hour"
+                : "quarter-hour";
           return (
             <line
               key={`v-grid-${tick}`}
@@ -182,7 +237,12 @@ function DayLogSvg({ dayLog, meta, onOpenEdit, onRemarksChange }) {
         {Array.from({ length: 25 }, (_, hour) => {
           const x = xFromHour(hour);
           return (
-            <text key={`hour-label-${hour}`} x={x + 1} y={top - 9} className="eld-hour-label">
+            <text
+              key={`hour-label-${hour}`}
+              x={x + 1}
+              y={top - 9}
+              className="eld-hour-label"
+            >
               {hour}
             </text>
           );
@@ -222,23 +282,28 @@ function DayLogSvg({ dayLog, meta, onOpenEdit, onRemarksChange }) {
   );
 }
 
-function ELDLogSheet({ logs }) {
-  const [metaByDay, setMetaByDay] = useState({});
-  const [editingDay, setEditingDay] = useState(null);
-  const [draft, setDraft] = useState(null);
-  const [downloading, setDownloading] = useState(false);
-  const sheetRef = useRef(null);
+interface ELDLogSheetProps {
+  logs: DayLog[];
+}
 
-  const getDayKey = (day, index) => String(day?.day ?? index);
+function ELDLogSheet({ logs }: ELDLogSheetProps) {
+  const [metaByDay, setMetaByDay] = useState<Record<string, ELDMeta>>({});
+  const [editingDay, setEditingDay] = useState<string | null>(null);
+  const [draft, setDraft] = useState<ELDMeta | null>(null);
+  const [downloading, setDownloading] = useState<boolean>(false);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
 
-  const getMeta = (dayLog, dayKey) => {
+  const getDayKey = (day: DayLog, index: number): string =>
+    String(day.day ?? index);
+
+  const getMeta = (dayLog: DayLog, dayKey: string): ELDMeta => {
     return {
       ...buildDefaultMeta(dayLog),
       ...(metaByDay[dayKey] || {}),
     };
   };
 
-  const handleOpenEdit = (dayLog, dayKey) => {
+  const handleOpenEdit = (dayLog: DayLog, dayKey: string) => {
     setEditingDay(dayKey);
     setDraft(getMeta(dayLog, dayKey));
   };
@@ -267,7 +332,8 @@ function ELDLogSheet({ logs }) {
         backgroundColor: "#ffffff",
         useCORS: true,
         logging: false,
-        ignoreElements: (element) => element.classList?.contains("no-export"),
+        ignoreElements: (element: Element) =>
+          element.classList?.contains("no-export") || false,
       });
 
       const imageData = canvas.toDataURL("image/png");
@@ -338,13 +404,18 @@ function ELDLogSheet({ logs }) {
         <div className="eld-empty-state">
           <p className="eld-empty-title">No log sheets yet</p>
           <p className="eld-empty-copy">
-            Generate a route plan to populate daily ELD logs. Once a plan is ready, your sheets will appear here.
+            Generate a route plan to populate daily ELD logs. Once a plan is
+            ready, your sheets will appear here.
           </p>
         </div>
       )}
 
       {editingDay && draft ? (
-        <div className="eld-modal-overlay no-export" role="dialog" aria-modal="true">
+        <div
+          className="eld-modal-overlay no-export"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="eld-modal">
             <h3>Edit Log Details</h3>
             <label>
@@ -352,7 +423,13 @@ function ELDLogSheet({ logs }) {
               <input
                 type="text"
                 value={draft.driverName}
-                onChange={(event) => setDraft((current) => ({ ...current, driverName: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, driverName: event.target.value }
+                      : current,
+                  )
+                }
               />
             </label>
             <label>
@@ -360,7 +437,13 @@ function ELDLogSheet({ logs }) {
               <input
                 type="text"
                 value={draft.carrierName}
-                onChange={(event) => setDraft((current) => ({ ...current, carrierName: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, carrierName: event.target.value }
+                      : current,
+                  )
+                }
               />
             </label>
             <label>
@@ -368,7 +451,13 @@ function ELDLogSheet({ logs }) {
               <input
                 type="text"
                 value={draft.truckNumber}
-                onChange={(event) => setDraft((current) => ({ ...current, truckNumber: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, truckNumber: event.target.value }
+                      : current,
+                  )
+                }
               />
             </label>
             <label>
@@ -376,7 +465,13 @@ function ELDLogSheet({ logs }) {
               <input
                 type="text"
                 value={draft.date}
-                onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, date: event.target.value }
+                      : current,
+                  )
+                }
               />
             </label>
             <label>
@@ -384,18 +479,34 @@ function ELDLogSheet({ logs }) {
               <input
                 type="text"
                 value={draft.totalMiles}
-                onChange={(event) => setDraft((current) => ({ ...current, totalMiles: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, totalMiles: event.target.value }
+                      : current,
+                  )
+                }
               />
             </label>
             <label>
               Remarks
               <textarea
                 value={draft.remarks}
-                onChange={(event) => setDraft((current) => ({ ...current, remarks: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, remarks: event.target.value }
+                      : current,
+                  )
+                }
               />
             </label>
             <div className="eld-modal-actions">
-              <button type="button" className="eld-action-btn" onClick={handleSaveEdit}>
+              <button
+                type="button"
+                className="eld-action-btn"
+                onClick={handleSaveEdit}
+              >
                 Save
               </button>
               <button

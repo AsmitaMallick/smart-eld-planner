@@ -1,18 +1,25 @@
 import { useState } from "react";
 import { MapPin, Truck } from "lucide-react";
 import LocationSearchInput from "./LocationSearchInput";
+import type { LocationOption, TripPlanPayload } from "../types/trip";
 
-function TripForm({ onSubmit, loading, error }) {
-  const [origin, setOrigin] = useState("");
-  const [pickup, setPickup] = useState("");
-  const [dropoff, setDropoff] = useState("");
-  const [selectedOrigin, setSelectedOrigin] = useState(null);
-  const [selectedPickup, setSelectedPickup] = useState(null);
-  const [selectedDropoff, setSelectedDropoff] = useState(null);
-  const [currentCycleUsed, setCurrentCycleUsed] = useState("");
-  const [formError, setFormError] = useState("");
+interface TripFormProps {
+  onSubmit: (payload: TripPlanPayload) => void | Promise<void>;
+  loading: boolean;
+  error: string;
+}
 
-  const handleSubmit = (event) => {
+function TripForm({ onSubmit, loading, error }: TripFormProps) {
+  const [origin, setOrigin] = useState<string>("");
+  const [pickup, setPickup] = useState<string>("");
+  const [dropoff, setDropoff] = useState<string>("");
+  const [selectedOrigin, setSelectedOrigin] = useState<LocationOption | null>(null);
+  const [selectedPickup, setSelectedPickup] = useState<LocationOption | null>(null);
+  const [selectedDropoff, setSelectedDropoff] = useState<LocationOption | null>(null);
+  const [currentCycleUsed, setCurrentCycleUsed] = useState<string>("");
+  const [formError, setFormError] = useState<string>("");
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!selectedOrigin || !selectedPickup || !selectedDropoff) {
@@ -40,7 +47,7 @@ function TripForm({ onSubmit, loading, error }) {
     setFormError("");
   };
 
-  const handleCycleUsedChange = (nextValue) => {
+  const handleCycleUsedChange = (nextValue: string) => {
     if (nextValue === "") {
       setCurrentCycleUsed("");
       return;
@@ -100,7 +107,7 @@ function TripForm({ onSubmit, loading, error }) {
           selectedOption={selectedDropoff}
           placeholder="Chicago IL"
           required
-          />
+        />
         <label>
           Current Cycle Used
           <input
@@ -110,7 +117,7 @@ function TripForm({ onSubmit, loading, error }) {
             step="0.5"
             value={currentCycleUsed}
             onChange={(event) => handleCycleUsedChange(event.target.value)}
-            onWheel={(event) => event.currentTarget.blur()}
+            onWheel={(event: React.WheelEvent<HTMLInputElement>) => event.currentTarget.blur()}
             required
           />
         </label>
