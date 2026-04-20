@@ -1,9 +1,12 @@
 import { useState } from "react";
 import axios from "axios";
 import {
+  Car,
   Bell,
   CircleHelp,
   Compass,
+  Clock3,
+  Hourglass,
   FileText,
   LayoutDashboard,
   Map,
@@ -157,19 +160,31 @@ function PlannerPage() {
 
           {result?.summary ? (
             <section className="summary-grid" aria-label="Trip summary stats">
-              <article className="summary-card">
+              <article className="summary-card metric-total">
+                <div className="summary-icon-wrap" aria-hidden="true">
+                  <Car size={16} strokeWidth={2.1} />
+                </div>
                 <p className="summary-label">Total Miles</p>
                 <p className="summary-value">{Number(result.summary.total_miles || 0).toFixed(1)}</p>
               </article>
-              <article className="summary-card">
+              <article className="summary-card metric-days">
+                <div className="summary-icon-wrap" aria-hidden="true">
+                  <Hourglass size={16} strokeWidth={2.1} />
+                </div>
                 <p className="summary-label">Estimated Days</p>
                 <p className="summary-value">{result.summary.estimated_days || 0}</p>
               </article>
-              <article className="summary-card">
+              <article className="summary-card metric-drive">
+                <div className="summary-icon-wrap" aria-hidden="true">
+                  <Clock3 size={16} strokeWidth={2.1} />
+                </div>
                 <p className="summary-label">Drive Hours</p>
                 <p className="summary-value">{Number(result.summary.total_drive_hours || 0).toFixed(1)}</p>
               </article>
-              <article className="summary-card">
+              <article className="summary-card metric-rest">
+                <div className="summary-icon-wrap" aria-hidden="true">
+                  <Map size={16} strokeWidth={2.1} />
+                </div>
                 <p className="summary-label">Rest Stops</p>
                 <p className="summary-value">{result.summary.rest_stops || 0}</p>
               </article>

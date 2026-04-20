@@ -60,7 +60,10 @@ function RouteMap({ geometry, stops }) {
   return (
     <div className="card map-card">
       <div className="map-card-header">
-        <h2>Route Preview</h2>
+        <div className="map-title-block">
+          <h2>Route Preview</h2>
+          <p className="map-subtitle">Visual route guidance for pickup, dropoff, fuel, and rest planning.</p>
+        </div>
         <div className="map-legend" aria-label="Map legend">
           <span className="map-legend-item">
             <i className="map-legend-dot fuel" /> Fuel stops
@@ -97,6 +100,7 @@ function RouteMap({ geometry, stops }) {
           </Marker>
         ))}
       </MapContainer>
+      <p className="map-interaction-note">Tip: scroll to zoom and drag to inspect stop details.</p>
     </div>
   );
 }

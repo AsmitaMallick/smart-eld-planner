@@ -6,6 +6,7 @@ const LOCATION_SEARCH_URL = `${API_BASE}/api/trip/location-search/`;
 function LocationSearchInput({
   label,
   labelIcon = null,
+  inputIcon = null,
   placeholder,
   value,
   onValueChange,
@@ -118,23 +119,27 @@ function LocationSearchInput({
         {labelIcon ? <span className="location-input-label-icon">{labelIcon}</span> : null}
         <span>{label}</span>
       </span>
-      <input
-        type="text"
-        value={value}
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          onValueChange(nextValue);
+      <div className="location-input-shell">
+        {inputIcon ? <span className="location-input-field-icon">{inputIcon}</span> : null}
+        <input
+          className="location-input-field"
+          type="text"
+          value={value}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            onValueChange(nextValue);
 
-          const selectedLabel = String(selectedOption?.label || "").trim();
-          if (selectedLabel && nextValue.trim() !== selectedLabel) {
-            onSelect(null);
-          }
-        }}
-        onBlur={handleBlur}
-        onFocus={handleFocus}
-        placeholder={placeholder}
-        required={required}
-      />
+            const selectedLabel = String(selectedOption?.label || "").trim();
+            if (selectedLabel && nextValue.trim() !== selectedLabel) {
+              onSelect(null);
+            }
+          }}
+          onBlur={handleBlur}
+          onFocus={handleFocus}
+          placeholder={placeholder}
+          required={required}
+        />
+      </div>
       {open ? (
         <div className="suggestions-dropdown">
           {loading ? <div className="suggestions-row muted">Loading...</div> : null}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, Truck } from "lucide-react";
+import { Clock3, Flag, MapPin, Truck } from "lucide-react";
 import LocationSearchInput from "./LocationSearchInput";
 
 function TripForm({ onSubmit, loading, error }) {
@@ -65,6 +65,7 @@ function TripForm({ onSubmit, loading, error }) {
         <LocationSearchInput
           label="Current Location"
           labelIcon={<MapPin size={14} strokeWidth={2.25} className="location-icon current" aria-hidden="true" />}
+          inputIcon={<MapPin size={16} strokeWidth={2.2} aria-hidden="true" />}
           value={origin}
           onValueChange={(nextValue) => {
             setOrigin(nextValue);
@@ -72,12 +73,13 @@ function TripForm({ onSubmit, loading, error }) {
           }}
           onSelect={setSelectedOrigin}
           selectedOption={selectedOrigin}
-          placeholder="Dallas TX"
+          placeholder="Enter city or location"
           required
         />
         <LocationSearchInput
           label="Pickup Location"
           labelIcon={<Truck size={14} strokeWidth={2.2} className="location-icon pickup" aria-hidden="true" />}
+          inputIcon={<Truck size={16} strokeWidth={2.2} aria-hidden="true" />}
           value={pickup}
           onValueChange={(nextValue) => {
             setPickup(nextValue);
@@ -85,12 +87,13 @@ function TripForm({ onSubmit, loading, error }) {
           }}
           onSelect={setSelectedPickup}
           selectedOption={selectedPickup}
-          placeholder="Houston TX"
+          placeholder="Enter city or location"
           required
         />
         <LocationSearchInput
           label="Dropoff Location"
-          labelIcon={<MapPin size={14} strokeWidth={2.25} className="location-icon dropoff" aria-hidden="true" />}
+          labelIcon={<Flag size={14} strokeWidth={2.25} className="location-icon dropoff" aria-hidden="true" />}
+          inputIcon={<Flag size={16} strokeWidth={2.2} aria-hidden="true" />}
           value={dropoff}
           onValueChange={(nextValue) => {
             setDropoff(nextValue);
@@ -98,21 +101,27 @@ function TripForm({ onSubmit, loading, error }) {
           }}
           onSelect={setSelectedDropoff}
           selectedOption={selectedDropoff}
-          placeholder="Chicago IL"
+          placeholder="Enter city or location"
           required
           />
         <label>
           Current Cycle Used
-          <input
-            type="number"
-            min="0"
-            max="70"
-            step="0.5"
-            value={currentCycleUsed}
-            onChange={(event) => handleCycleUsedChange(event.target.value)}
-            onWheel={(event) => event.currentTarget.blur()}
-            required
-          />
+          <div className="cycle-input-shell">
+            <span className="cycle-input-icon" aria-hidden="true">
+              <Clock3 size={16} strokeWidth={2} />
+            </span>
+            <input
+              type="number"
+              min="0"
+              max="70"
+              step="0.5"
+              value={currentCycleUsed}
+              onChange={(event) => handleCycleUsedChange(event.target.value)}
+              onWheel={(event) => event.currentTarget.blur()}
+              placeholder="Hours used in current cycle"
+              required
+            />
+          </div>
         </label>
       </div>
 
