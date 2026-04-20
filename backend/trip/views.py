@@ -6,10 +6,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from backend.trip.services.eld_builder import build_eld_logs
-from backend.trip.services.hos_engine import build_timeline, calculate_schedule
-from backend.trip.services.route_service import plan_route
-from backend.trip.services.summary_service import calculate_summary
+from trip.services.eld_builder import build_eld_logs
+from trip.services.hos_engine import build_timeline, calculate_schedule
+from trip.services.route_service import plan_route
+from trip.services.summary_service import calculate_summary
 
 
 class TripPlanView(APIView):

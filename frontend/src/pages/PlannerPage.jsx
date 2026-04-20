@@ -15,7 +15,8 @@ import TripForm from "../components/TripForm";
 import RouteMap from "../components/RouteMap";
 import ELDLogSheet from "../components/ELDLogSheet";
 
-const API_URL = "/api/trip/plan/";
+const API_BASE = import.meta.env.VITE_API_URL;
+const API_URL = `${API_BASE}/api/trip/plan/`;
 
 function PlannerPage() {
   const [loading, setLoading] = useState(false);

@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from backend.trip.services.summary_service import calculate_summary
+from trip.services.summary_service import calculate_summary
 
 
 class SummaryServiceTests(SimpleTestCase):

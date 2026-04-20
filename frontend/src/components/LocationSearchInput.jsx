@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-const LOCATION_SEARCH_URL = "/api/trip/location-search/";
+const API_BASE = import.meta.env.VITE_API_URL;
+const LOCATION_SEARCH_URL = `${API_BASE}/api/trip/location-search/`;
 
 function LocationSearchInput({
   label,
@@ -43,7 +44,7 @@ function LocationSearchInput({
       setError("");
 
       try {
-        const url = new URL(LOCATION_SEARCH_URL, window.location.origin);
+        const url = new URL(LOCATION_SEARCH_URL);
         url.searchParams.set("q", query);
 
         const response = await fetch(url.toString(), { signal: controller.signal });

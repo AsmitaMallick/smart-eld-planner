@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.test import SimpleTestCase
 
-from backend.trip.services.hos_engine import (
+from trip.services.hos_engine import (
     BREAK_DURATION_HOURS,
     BREAK_REQUIRED_AFTER_HOURS,
     DAILY_RESET_HOURS,
