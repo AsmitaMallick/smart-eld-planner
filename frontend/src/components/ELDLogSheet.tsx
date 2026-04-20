@@ -327,36 +327,44 @@ function ELDLogSheet({ logs }: ELDLogSheetProps) {
 
     setDownloading(true);
     try {
-      const canvas = await html2canvas(sheetRef.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        logging: false,
-        ignoreElements: (element: Element) =>
-          element.classList?.contains("no-export") || false,
-      });
-
-      const imageData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "pt", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imageWidth = pageWidth;
-      const imageHeight = (canvas.height * imageWidth) / canvas.width;
+      
+      // 1. Grab all the individual log wrappers inside the container
+      const sheetElements = sheetRef.current.querySelectorAll<HTMLElement>(".eld-sheet-wrapper");
 
-      let remaining = imageHeight;
-      let y = 0;
+      // 2. Loop through each sheet individually
+      for (let i = 0; i < sheetElements.length; i++) {
+        const element = sheetElements[i];
 
-      pdf.addImage(imageData, "PNG", 0, y, imageWidth, imageHeight);
-      remaining -= pageHeight;
+        // Capture just this specific log
+        const canvas = await html2canvas(element, {
+          scale: 2, 
+          backgroundColor: "#ffffff",
+          useCORS: true,
+          logging: false,
+          ignoreElements: (el: Element) =>
+            el.classList?.contains("no-export") || false,
+        });
 
-      while (remaining > 0) {
-        y = remaining - imageHeight;
-        pdf.addPage();
-        pdf.addImage(imageData, "PNG", 0, y, imageWidth, imageHeight);
-        remaining -= pageHeight;
+        const imageData = canvas.toDataURL("image/png");
+        const imageWidth = pageWidth;
+        const imageHeight = (canvas.height * imageWidth) / canvas.width;
+
+        // Add a new page for every sheet after the first one
+        if (i > 0) {
+          pdf.addPage();
+        }
+
+        // Add the image slightly pushed down from the top (e.g., 40pt margin)
+        // Adjust the "40" below if you want it flush to the top (0)
+        pdf.addImage(imageData, "PNG", 0, 40, imageWidth, imageHeight);
       }
 
-      pdf.save("eld-log-sheet.pdf");
+      pdf.save(`eld-log-sheets-${new Date().toISOString().split("T")[0]}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("Failed to generate PDF. Please try again.");
     } finally {
       setDownloading(false);
     }
