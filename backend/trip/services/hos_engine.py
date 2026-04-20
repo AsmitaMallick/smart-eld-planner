@@ -386,13 +386,14 @@ def validate_schedule(schedule):
             day_driving_hours += duration
             driving_since_break += duration
             duty_window_elapsed += duration
-
+            if driving_since_break > BREAK_REQUIRED_AFTER_HOURS + 1e-6:
+                raise ValueError("Driving exceeds 8 hours without a required 30-min break")
             if day_driving_hours > MAX_DRIVING_HOURS_PER_DAY + 1e-6:
                 raise ValueError("Driving exceeds 11-hour daily limit")
             if duty_window_elapsed > MAX_DRIVING_WINDOW_HOURS + 1e-6:
                 raise ValueError("Driving exceeds 14-hour duty window")
-            if driving_since_break > BREAK_REQUIRED_AFTER_HOURS + 1e-6:
-                raise ValueError("Driving exceeds 8 hours without a required 30-min break")
+            # if driving_since_break > BREAK_REQUIRED_AFTER_HOURS + 1e-6:
+            #     raise ValueError("Driving exceeds 8 hours without a required 30-min break")
             continue
 
         if status in {"on_duty", "off_duty"}:
