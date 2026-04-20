@@ -173,7 +173,7 @@ function DayLogSvg({
             <span className="eld-meta-value">{meta.carrierName || "-"}</span>
           </div>
           <div className="eld-meta-item">
-            <span className="eld-meta-label">Truck #</span>
+            <span className="eld-meta-label">Truck Number</span>
             <span className="eld-meta-value">{meta.truckNumber || "-"}</span>
           </div>
           <div className="eld-meta-item">
