@@ -47,6 +47,10 @@ def map_event_title(segment):
         return "Fuel Stop"
     if event_type == "reset":
         return "10h Reset"
+    if event_type == "end_of_trip_rest":
+        return "End of Trip Rest"
+    if event_type == "cycle_reset":
+        return "34h Cycle Reset"
     if event_type == "inspection":
         return "Inspection"
     if event_type == "rest":
@@ -135,7 +139,8 @@ def calculate_schedule(leg1_miles, leg2_miles, current_cycle_used):
     day_driving_hours = 0.0
     driving_since_break = 0.0
     duty_window_elapsed = 0.0
-    needs_pretrip = False
+    # CHANGED: do not force a reset at schedule start; begin with pretrip when duty starts.
+    needs_pretrip = True
 
     def append_segment(status, event_type, duration_hours, miles=0.0, location=None):
         nonlocal current_time
@@ -168,17 +173,43 @@ def calculate_schedule(leg1_miles, leg2_miles, current_cycle_used):
         duty_window_elapsed = 0.0
         needs_pretrip = True
 
+    def apply_cycle_reset():
+        # CHANGED: 34-hour cycle reset helper with defensive duplicate protection.
+        nonlocal cycle_used, day_driving_hours, driving_since_break, duty_window_elapsed, needs_pretrip
+        # FIX: prevent back-to-back cycle_reset segments.
+        if schedule and schedule[-1].get("event_type") == "cycle_reset":
+            return False
+        append_segment("sleeper", "cycle_reset", 34.0)
+        # FIX: cycle reset restores available capacity/state.
+        cycle_used = 0.0
+        day_driving_hours = 0.0
+        driving_since_break = 0.0
+        duty_window_elapsed = 0.0
+        needs_pretrip = True
+        return True
+
+    def ensure_cycle_capacity(required_hours):
+        # CHANGED: cycle limit now triggers a 34-hour reset instead of terminating schedule.
+        if required_hours <= EPSILON:
+            return
+        if remaining_cycle_hours() < required_hours - EPSILON:
+            # FIX: only reset when cycle has actually been consumed.
+            if cycle_used > EPSILON:
+                apply_cycle_reset()
+
     def append_non_driving(status, event_type, duration_hours):
         nonlocal cycle_used, duty_window_elapsed, driving_since_break
 
-        if status in {"driving", "on_duty", "off_duty"} and remaining_cycle_hours() < duration_hours - EPSILON:
-            raise ValueError("70-hour cycle limit reached before trip completion")
+        # CHANGED: cycle capacity enforcement for non-driving duty events.
+        if status in {"driving", "on_duty"}:
+            ensure_cycle_capacity(duration_hours)
 
         if status in {"driving", "on_duty", "off_duty"} and duty_window_elapsed + duration_hours > MAX_DRIVING_WINDOW_HOURS + EPSILON:
             apply_reset()
 
-        if status in {"driving", "on_duty", "off_duty"} and remaining_cycle_hours() < duration_hours - EPSILON:
-            raise ValueError("70-hour cycle limit reached before trip completion")
+        # CHANGED: if we reset above, re-check cycle capacity against fresh state.
+        if status in {"driving", "on_duty"}:
+            ensure_cycle_capacity(duration_hours)
 
         if status in {"driving", "on_duty", "off_duty"} and duty_window_elapsed + duration_hours > MAX_DRIVING_WINDOW_HOURS + EPSILON:
             raise ValueError("Unable to schedule duty event within 14-hour window")
@@ -187,14 +218,28 @@ def calculate_schedule(leg1_miles, leg2_miles, current_cycle_used):
 
         if status in {"driving", "on_duty", "off_duty"}:
             duty_window_elapsed += duration_hours
+
+        # CHANGED: 70-hour cycle tracks driving/on-duty, not off-duty breaks.
+        if status in {"driving", "on_duty"}:
             cycle_used += duration_hours
 
         if duration_hours >= BREAK_DURATION_HOURS - EPSILON:
             driving_since_break = 0.0
 
-    apply_reset()
+    # CHANGED: only apply cycle reset at start when no cycle capacity remains.
+    if remaining_cycle_hours() <= EPSILON:
+        apply_cycle_reset()
+
+    # CHANGED: defensive progress guard against infinite loops.
+    no_drive_iterations = 0
+    max_no_drive_iterations = 1000
 
     while total_miles_driven < total_miles - EPSILON:
+        # FIX: detect repeated iterations with no driving progress.
+        no_drive_iterations += 1
+        if no_drive_iterations > max_no_drive_iterations:
+            raise ValueError("Unable to progress schedule: no driving progress across many iterations")
+
         if needs_pretrip:
             append_non_driving("on_duty", "inspection", PRETRIP_INSPECTION_HOURS)
             needs_pretrip = False
@@ -259,7 +304,12 @@ def calculate_schedule(leg1_miles, leg2_miles, current_cycle_used):
             raise ValueError("Unable to advance schedule due to precision constraints")
 
         if remaining_cycle_hours() < drive_hours - EPSILON:
-            raise ValueError("70-hour cycle limit reached before trip completion")
+            # CHANGED: convert cycle shortage into intelligent 34-hour reset.
+            # FIX: avoid repeated reset loops when cycle_used is already zero.
+            if cycle_used > EPSILON:
+                apply_cycle_reset()
+                continue
+            raise ValueError("Unable to progress schedule: insufficient cycle capacity for driving segment")
 
         drive_miles = drive_hours * AVG_SPEED
         append_segment("driving", "drive", drive_hours, miles=drive_miles)
@@ -270,13 +320,14 @@ def calculate_schedule(leg1_miles, leg2_miles, current_cycle_used):
         driving_since_break += drive_hours
         duty_window_elapsed += drive_hours
         cycle_used += drive_hours
+        no_drive_iterations = 0
 
     if not leg1_completed and total_miles_driven >= leg1 - EPSILON:
         append_non_driving("on_duty", "pickup", PICKUP_DURATION_HOURS)
         leg1_completed = True
 
     append_non_driving("on_duty", "dropoff", DROPOFF_DURATION_HOURS)
-    append_segment("sleeper", "reset", DAILY_RESET_HOURS)
+    append_segment("sleeper", "end_of_trip_rest", DAILY_RESET_HOURS)
 
     rounded_schedule = [_round_segment(segment) for segment in schedule]
     validate_schedule(rounded_schedule)
@@ -319,6 +370,13 @@ def validate_schedule(schedule):
             dropoff_count += 1
 
         if event_type == "reset" and status == "sleeper" and duration >= DAILY_RESET_HOURS - EPSILON:
+            day_driving_hours = 0.0
+            driving_since_break = 0.0
+            duty_window_elapsed = 0.0
+            continue
+
+        # CHANGED: 34-hour cycle reset also resets active-duty counters.
+        if event_type == "cycle_reset" and status == "sleeper" and duration >= 34.0 - EPSILON:
             day_driving_hours = 0.0
             driving_since_break = 0.0
             duty_window_elapsed = 0.0

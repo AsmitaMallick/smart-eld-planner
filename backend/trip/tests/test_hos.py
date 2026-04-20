@@ -116,7 +116,7 @@ class HosEngineTests(SimpleTestCase):
         timeline = build_timeline(schedule)
         self.assertGreaterEqual(len(timeline), len(schedule))
 
-    def test_timeline_includes_post_dropoff_reset(self):
+    def test_timeline_includes_post_dropoff_end_of_trip_rest(self):
         schedule = calculate_schedule(leg1_miles=300, leg2_miles=200, current_cycle_used=0)
         timeline = build_timeline(schedule)
-        self.assertTrue(any(item["type"] == "reset" for item in timeline))
+        self.assertTrue(any(item["type"] == "end_of_trip_rest" for item in timeline))

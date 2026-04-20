@@ -72,6 +72,8 @@ def _remark_for_segment(segment: dict) -> str:
         return "30-min required break"
     if event_type == "reset":
         return "Start of 10-hr reset"
+    if event_type == "end_of_trip_rest":
+        return "End of trip rest"
     return ""
 
 

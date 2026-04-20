@@ -14,6 +14,7 @@ import {
 import TripForm from "../components/TripForm";
 import RouteMap from "../components/RouteMap";
 import ELDLogSheet from "../components/ELDLogSheet";
+import { showToast } from "../utils/toast";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 const API_URL = `${API_BASE}/api/trip/plan/`;
@@ -31,13 +32,20 @@ function PlannerPage() {
         headers: { "Content-Type": "application/json" },
       });
       setResult(response.data);
+      showToast("Plan generated successfully", "success");
     } catch (err) {
       const detail = err?.response?.data?.detail;
-      setError(detail || "Unable to plan trip. Check backend and API key.");
+      const errorMessage = detail || "Unable to plan trip. Check backend and API key.";
+      setError(errorMessage);
       setResult(null);
+      showToast(errorMessage, "error", { duration: 3600 });
     } finally {
       setLoading(false);
     }
+  };
+
+  const notifyComingSoon = (message, type = "info") => () => {
+    showToast(message, type);
   };
 
   return (
@@ -50,19 +58,35 @@ function PlannerPage() {
               <LayoutDashboard size={16} strokeWidth={2} aria-hidden="true" />
               <span>Dashboard</span>
             </button>
-            <button type="button" className="sidebar-link">
+            <button
+              type="button"
+              className="sidebar-link placeholder-control"
+              onClick={notifyComingSoon("Logs feature coming soon")}
+            >
               <FileText size={16} strokeWidth={2} aria-hidden="true" />
               <span>Logs</span>
             </button>
-            <button type="button" className="sidebar-link">
+            <button
+              type="button"
+              className="sidebar-link placeholder-control"
+              onClick={notifyComingSoon("Maps feature coming soon")}
+            >
               <Map size={16} strokeWidth={2} aria-hidden="true" />
               <span>Maps</span>
             </button>
-            <button type="button" className="sidebar-link">
+            <button
+              type="button"
+              className="sidebar-link placeholder-control"
+              onClick={notifyComingSoon("Documents feature coming soon")}
+            >
               <Compass size={16} strokeWidth={2} aria-hidden="true" />
               <span>Documents</span>
             </button>
-            <button type="button" className="sidebar-link">
+            <button
+              type="button"
+              className="sidebar-link placeholder-control"
+              onClick={notifyComingSoon("Compliance dashboard coming soon")}
+            >
               <ShieldCheck size={16} strokeWidth={2} aria-hidden="true" />
               <span>Compliance</span>
             </button>
@@ -70,11 +94,19 @@ function PlannerPage() {
         </div>
 
         <div className="sidebar-bottom">
-          <button type="button" className="sidebar-link">
+          <button
+            type="button"
+            className="sidebar-link placeholder-control"
+            onClick={notifyComingSoon("Settings page coming soon")}
+          >
             <Settings size={16} strokeWidth={2} aria-hidden="true" />
             <span>Settings</span>
           </button>
-          <button type="button" className="sidebar-link">
+          <button
+            type="button"
+            className="sidebar-link placeholder-control"
+            onClick={notifyComingSoon("Support feature coming soon")}
+          >
             <CircleHelp size={16} strokeWidth={2} aria-hidden="true" />
             <span>Support</span>
           </button>
@@ -85,13 +117,28 @@ function PlannerPage() {
         <header className="dashboard-topbar">
           <p className="topbar-app-name">Dashboard</p>
           <div className="topbar-actions">
-            <button type="button" className="topbar-icon" aria-label="Notifications">
+            <button
+              type="button"
+              className="topbar-icon placeholder-control"
+              aria-label="Notifications"
+              onClick={notifyComingSoon("Notifications feature coming soon")}
+            >
               <Bell size={18} strokeWidth={2} aria-hidden="true" />
             </button>
-            <button type="button" className="topbar-icon" aria-label="Profile">
+            <button
+              type="button"
+              className="topbar-icon placeholder-control"
+              aria-label="Profile"
+              onClick={notifyComingSoon("Account page coming soon")}
+            >
               <User size={18} strokeWidth={2} aria-hidden="true" />
             </button>
-            <button type="button" className="topbar-export" aria-label="Export plan data">
+            <button
+              type="button"
+              className="topbar-export placeholder-control"
+              aria-label="Export plan data"
+              onClick={notifyComingSoon("Export feature coming soon")}
+            >
               Export
             </button>
           </div>

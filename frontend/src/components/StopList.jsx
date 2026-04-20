@@ -34,7 +34,7 @@ function colorClassFor(item) {
 }
 
 function isMajorStop(item) {
-  return ["pickup", "dropoff", "fuel", "reset"].includes(item.type);
+  return ["pickup", "dropoff", "fuel", "reset", "end_of_trip_rest"].includes(item.type);
 }
 
 function StopList({ timeline }) {
